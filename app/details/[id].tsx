@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Image,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -122,6 +123,17 @@ export default function ObservationDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      {/* Evidence Photo Preview */}
+      {evidenceList.length > 0 && evidenceList[0].localUri ? (
+        <View style={styles.evidenceImageContainer}>
+          <Image
+            source={{ uri: evidenceList[0].localUri }}
+            style={styles.evidenceImage}
+            resizeMode="cover"
+          />
+        </View>
+      ) : null}
+
       {/* Hero Header Card */}
       <View style={styles.heroCard}>
         <View style={styles.heroHeader}>
@@ -266,6 +278,20 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 16,
     fontWeight: '600',
+  },
+  evidenceImageContainer: {
+    width: '100%',
+    height: 220,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 16,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  evidenceImage: {
+    width: '100%',
+    height: '100%',
   },
   heroCard: {
     backgroundColor: '#111827',

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { getDatabase } from '../src/db';
 import { mlService } from '../src/ml';
 import { authService } from '../src/auth';
@@ -15,6 +15,7 @@ import {
 import { AppSyncClient, S3Uploader } from '../src/api';
 
 export default function RootLayout() {
+  const router = useRouter();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -69,6 +70,18 @@ export default function RootLayout() {
     );
   }
 
+  const renderBackButton = () => (
+    <TouchableOpacity
+      onPress={() => router.back()}
+      style={styles.backButton}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      activeOpacity={0.7}
+    >
+      <Text style={styles.backButtonIcon}>‹</Text>
+      <Text style={styles.backButtonText}>Back</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <>
       <StatusBar style="light" />
@@ -97,35 +110,35 @@ export default function RootLayout() {
           name="capture"
           options={{
             title: 'Capture Butterfly',
-            headerBackTitle: 'Back',
+            headerLeft: renderBackButton,
           }}
         />
         <Stack.Screen
           name="review"
           options={{
             title: 'Observation Review',
-            headerBackTitle: 'Capture',
+            headerLeft: renderBackButton,
           }}
         />
         <Stack.Screen
           name="history"
           options={{
             title: 'Observation Log',
-            headerBackTitle: 'Home',
+            headerLeft: renderBackButton,
           }}
         />
         <Stack.Screen
           name="details/[id]"
           options={{
             title: 'Observation Details',
-            headerBackTitle: 'Log',
+            headerLeft: renderBackButton,
           }}
         />
         <Stack.Screen
           name="settings"
           options={{
             title: 'Settings & Privacy',
-            headerBackTitle: 'Home',
+            headerLeft: renderBackButton,
           }}
         />
       </Stack>
@@ -145,5 +158,25 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 16,
     fontWeight: '500',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingRight: 12,
+    marginLeft: -4,
+  },
+  backButtonIcon: {
+    color: '#F97316',
+    fontSize: 32,
+    lineHeight: 32,
+    fontWeight: '300',
+    marginRight: 2,
+    marginTop: -2,
+  },
+  backButtonText: {
+    color: '#F97316',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

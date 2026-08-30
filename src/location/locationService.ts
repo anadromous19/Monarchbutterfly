@@ -1,3 +1,4 @@
+import * as Location from 'expo-location';
 import { LocationFix, LocationPermissionState } from './types';
 
 export interface LocationService {
@@ -9,7 +10,6 @@ export interface LocationService {
 export class MobileLocationService implements LocationService {
   async requestForegroundPermission(): Promise<LocationPermissionState> {
     try {
-      const Location = await import('expo-location');
       if (Location && Location.requestForegroundPermissionsAsync) {
         const response = await Location.requestForegroundPermissionsAsync();
         return {
@@ -18,20 +18,19 @@ export class MobileLocationService implements LocationService {
           status: response.status === 'granted' ? 'granted' : 'denied',
         };
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.warn('Location request permission warning:', err);
     }
 
     return {
-      hasPermission: true,
+      hasPermission: false,
       canAskAgain: true,
-      status: 'granted',
+      status: 'denied',
     };
   }
 
   async checkForegroundPermission(): Promise<LocationPermissionState> {
     try {
-      const Location = await import('expo-location');
       if (Location && Location.getForegroundPermissionsAsync) {
         const response = await Location.getForegroundPermissionsAsync();
         return {
@@ -40,27 +39,31 @@ export class MobileLocationService implements LocationService {
           status: response.status === 'granted' ? 'granted' : response.status === 'denied' ? 'denied' : 'undetermined',
         };
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.warn('Location check permission warning:', err);
     }
 
     return {
-      hasPermission: true,
+      hasPermission: false,
       canAskAgain: true,
-      status: 'granted',
+      status: 'denied',
     };
   }
 
   async getCurrentLocation(maxAccuracyThresholdM = 100): Promise<LocationFix | null> {
     try {
-      const Location = await import('expo-location');
-      if (Location && Location.getCurrentPositionAsync) {
+      if (Location && Location.requestForegroundPermissionsAsync) {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== 'granted') {
+          console.log('Location permission was not granted by user.');
+          return null;
+        }
+
         const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy: Location.Accuracy.High,
         });
 
-        const accuracy = loc.coords.accuracy ?? 50;
-        // Check if accuracy meets threshold
+        const accuracy = loc.coords.accuracy ?? 15;
         if (accuracy > maxAccuracyThresholdM) {
           console.warn(`Location fix accuracy ${accuracy}m exceeded threshold of ${maxAccuracyThresholdM}m`);
         }
@@ -73,17 +76,11 @@ export class MobileLocationService implements LocationService {
           timestamp: new Date(loc.timestamp).toISOString(),
         };
       }
-    } catch {
-      // Fallback coordinates (e.g. typical monarch migration habitat waypoint)
+    } catch (err) {
+      console.warn('Could not acquire live GPS position:', err);
     }
 
-    return {
-      latitude: 37.7749,
-      longitude: -122.4194,
-      horizontalAccuracyM: 15.0,
-      altitudeM: 12.0,
-      timestamp: new Date().toISOString(),
-    };
+    return null;
   }
 }
 

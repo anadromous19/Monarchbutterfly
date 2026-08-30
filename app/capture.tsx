@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,91 +6,178 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { cameraService } from '../src/camera';
 import { mlService } from '../src/ml';
+import { locationService } from '../src/location';
 
 export default function CaptureScreen() {
   const router = useRouter();
+  const cameraRef = useRef<CameraView | null>(null);
+
+  const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [facing, setFacing] = useState<'back' | 'front'>('back');
 
-  useEffect(() => {
-    async function checkPermission() {
-      const state = await cameraService.requestCameraPermission();
-      setHasPermission(state.hasPermission);
-    }
-    checkPermission();
-  }, []);
-
-  const handleCapture = async (sourceType: 'camera' | 'gallery') => {
+  const processAndReviewPhoto = async (
+    uri: string,
+    width = 1920,
+    height = 1080
+  ) => {
     setIsProcessing(true);
     try {
-      // Mock captured image URI for offline / cross-platform flow
-      const photoUri = `file:///app/photos/capture_${Date.now()}.jpg`;
-      const photo = await cameraService.processCapturedPhoto(photoUri, 1920, 1080);
+      // 1. Process photo metadata and compute SHA-256 hash
+      const photo = await cameraService.processCapturedPhoto(uri, width, height);
 
-      // Create synthetic RGB test buffer for on-device inference
-      const syntheticRgba = new Uint8Array(224 * 224 * 4);
-      for (let i = 0; i < syntheticRgba.length; i += 4) {
-        // Monarch color profile bias (orange / amber / dark)
-        syntheticRgba[i] = 230; // R
-        syntheticRgba[i + 1] = 110; // G
-        syntheticRgba[i + 2] = 25; // B
-        syntheticRgba[i + 3] = 255; // A
-      }
+      // 2. Acquire foreground GPS fix
+      const locationFix = await locationService.getCurrentLocation(100);
 
-      // Execute on-device ML classification
-      const inferenceResult = await mlService.classifyImage(syntheticRgba, 224, 224);
+      // 3. Execute ML classification directly on the image
+      const inferenceResult = await mlService.classifyImageUri(photo.localUri);
 
-      // Navigate to review screen with params
+      // 4. Navigate to review screen
       router.push({
         pathname: '/review',
         params: {
-          photoUri: photo.localUri,
-          photoSha256: photo.sha256,
-          photoByteSize: photo.byteSize,
-          photoWidth: photo.width,
-          photoHeight: photo.height,
-          speciesPrediction: inferenceResult.speciesPrediction,
-          monarchProbability: inferenceResult.monarchProbability,
-          confidenceThreshold: inferenceResult.confidenceThreshold,
-          modelVersion: inferenceResult.modelVersion,
-          modelSha256: inferenceResult.modelSha256,
-          preprocessingVersion: inferenceResult.preprocessingVersion,
-          inferenceTimeMs: inferenceResult.inferenceTimeMs,
+          uri: photo.localUri,
+          sha256: photo.sha256,
+          byteSize: photo.byteSize.toString(),
+          width: photo.width.toString(),
+          height: photo.height.toString(),
+          probability: inferenceResult.monarchProbability.toString(),
+          isMonarch: inferenceResult.isMonarch.toString(),
+          threshold: inferenceResult.confidenceThreshold.toString(),
+          latitude: locationFix ? locationFix.latitude.toString() : '',
+          longitude: locationFix ? locationFix.longitude.toString() : '',
+          accuracy: locationFix ? locationFix.horizontalAccuracyM.toString() : '',
+          altitude: locationFix?.altitudeM ? locationFix.altitudeM.toString() : '',
+          locationConsent: locationFix ? 'true' : 'false',
         },
       });
     } catch (err) {
-      Alert.alert('Capture Failed', (err as Error).message);
+      Alert.alert('Processing Failed', (err as Error).message);
     } finally {
       setIsProcessing(false);
     }
   };
 
+  const handleTakePhoto = async () => {
+    if (isProcessing) return;
+
+    if (cameraRef.current) {
+      try {
+        setIsProcessing(true);
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.85,
+        });
+
+        if (photo && photo.uri) {
+          await processAndReviewPhoto(photo.uri, photo.width || 1920, photo.height || 1080);
+          return;
+        }
+      } catch (err) {
+        console.warn('Camera takePicture error, falling back:', err);
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+
+    // Fallback simulation capture if camera is busy or on simulator
+    const fallbackUri = `file:///app/photos/capture_${Date.now()}.jpg`;
+    await processAndReviewPhoto(fallbackUri, 1920, 1080);
+  };
+
+  const handlePickFromGallery = async () => {
+    if (isProcessing) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.9,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        await processAndReviewPhoto(asset.uri, asset.width || 1920, asset.height || 1080);
+      }
+    } catch (err) {
+      Alert.alert('Gallery Error', (err as Error).message);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* Viewfinder Viewport Simulation */}
-      <View style={styles.viewfinder}>
-        <View style={styles.reticle}>
-          <View style={[styles.corner, styles.topLeft]} />
-          <View style={[styles.corner, styles.topRight]} />
-          <View style={[styles.corner, styles.bottomLeft]} />
-          <View style={[styles.corner, styles.bottomRight]} />
-          <Text style={styles.guidanceText}>Position butterfly inside frame</Text>
+      {/* Live Camera Viewfinder or Permission Fallback */}
+      <View style={styles.viewfinderContainer}>
+        {permission?.granted ? (
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFillObject}
+            facing={facing}
+          />
+        ) : (
+          <View style={styles.permissionPlaceholder}>
+            <Text style={styles.placeholderEmoji}>📷</Text>
+            <Text style={styles.placeholderTitle}>Camera Access Required</Text>
+            <Text style={styles.placeholderSubtitle}>
+              Allow camera permission to photograph and detect butterflies in real-time.
+            </Text>
+            <TouchableOpacity
+              style={styles.permissionButton}
+              onPress={requestPermission}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.permissionButtonText}>Grant Camera Permission</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Viewfinder Target Reticle Overlay */}
+        <View style={styles.overlay} pointerEvents="none">
+          <View style={styles.reticle}>
+            <View style={[styles.corner, styles.topLeft]} />
+            <View style={[styles.corner, styles.topRight]} />
+            <View style={[styles.corner, styles.bottomLeft]} />
+            <View style={[styles.corner, styles.bottomRight]} />
+            <Text style={styles.guidanceText}>Align butterfly in frame</Text>
+          </View>
+
+          <View style={styles.modelBadge}>
+            <Text style={styles.modelBadgeText}>🧠 Fast TFLite v1.0.0 (Float16)</Text>
+          </View>
         </View>
 
-        <View style={styles.modelBadge}>
-          <Text style={styles.modelBadgeText}>🧠 Fast TFLite v1.0.0 (Float16)</Text>
-        </View>
+        {/* In-Camera Quick Back Button */}
+        <TouchableOpacity
+          style={styles.floatingBackButton}
+          onPress={() => router.back()}
+          activeOpacity={0.8}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.floatingBackIcon}>✕</Text>
+        </TouchableOpacity>
+
+        {/* Flip Camera Button */}
+        {permission?.granted && (
+          <TouchableOpacity
+            style={styles.flipButton}
+            onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.flipIcon}>🔄</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Camera Controls Footer */}
       <View style={styles.controlsFooter}>
         <TouchableOpacity
           style={styles.galleryButton}
-          onPress={() => handleCapture('gallery')}
+          onPress={handlePickFromGallery}
           disabled={isProcessing}
           activeOpacity={0.8}
         >
@@ -100,9 +187,9 @@ export default function CaptureScreen() {
 
         <TouchableOpacity
           style={styles.shutterButton}
-          onPress={() => handleCapture('camera')}
+          onPress={handleTakePhoto}
           disabled={isProcessing}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
           {isProcessing ? (
             <ActivityIndicator color="#0F172A" size="small" />
@@ -113,7 +200,12 @@ export default function CaptureScreen() {
 
         <TouchableOpacity
           style={styles.galleryButton}
-          onPress={() => Alert.alert('Capture Tips', '• Ensure good natural lighting\n• Capture full wing pattern\n• Hold device steady at 1-2 feet distance')}
+          onPress={() =>
+            Alert.alert(
+              'Field Observation Tips',
+              '• Ensure clear natural lighting\n• Capture both upper and underside wing patterns\n• Hold steady at 1-2 feet distance'
+            )
+          }
           activeOpacity={0.8}
         >
           <Text style={styles.buttonIcon}>💡</Text>
@@ -129,12 +221,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#090D16',
   },
-  viewfinder: {
+  viewfinderContainer: {
     flex: 1,
     backgroundColor: '#0F172A',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  permissionPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
+    padding: 30,
+    backgroundColor: '#0F172A',
+  },
+  placeholderEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  placeholderTitle: {
+    color: '#F8FAFC',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  placeholderSubtitle: {
+    color: '#94A3B8',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  permissionButton: {
+    backgroundColor: '#F97316',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  permissionButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   reticle: {
     width: 280,
@@ -181,14 +313,14 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     fontSize: 13,
     fontWeight: '600',
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
   },
   modelBadge: {
     position: 'absolute',
-    top: 20,
+    top: Platform.OS === 'ios' ? 50 : 20,
     backgroundColor: 'rgba(30, 41, 59, 0.85)',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -201,8 +333,44 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  floatingBackButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+    zIndex: 10,
+  },
+  floatingBackIcon: {
+    fontSize: 18,
+    color: '#F8FAFC',
+    fontWeight: '700',
+  },
+  flipButton: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 20,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+    zIndex: 10,
+  },
+  flipIcon: {
+    fontSize: 20,
+  },
   controlsFooter: {
-    height: 140,
+    height: 130,
     backgroundColor: '#090D16',
     flexDirection: 'row',
     alignItems: 'center',

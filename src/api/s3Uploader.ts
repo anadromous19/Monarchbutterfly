@@ -20,12 +20,36 @@ export class S3Uploader {
    */
   async uploadEvidence(options: S3UploadOptions): Promise<S3UploadResult> {
     try {
-      // In mobile environment with FileSystem or fetch:
-      // const response = await FileSystem.uploadAsync(options.uploadUrl, options.localUri, { httpMethod: 'PUT' });
+      if (!options.uploadUrl || options.uploadUrl.includes('example.com') || options.uploadUrl.includes('signed=true')) {
+        return {
+          success: false,
+          httpStatus: 0,
+          error: 'S3 storage not connected: Presigned URL is unconfigured.',
+        };
+      }
+
+      // Perform actual fetch PUT to presigned S3 URL
+      const response = await fetch(options.uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': options.mimeType || 'image/jpeg',
+          ...(options.headers || {}),
+        },
+        body: options.localUri, // Or blob in browser
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          httpStatus: response.status,
+          error: `S3 upload returned HTTP ${response.status}`,
+        };
+      }
+
       return {
         success: true,
-        httpStatus: 200,
-        etag: `"${options.sha256.substring(0, 32)}"`,
+        httpStatus: response.status,
+        etag: response.headers.get('etag') || `"${options.sha256.substring(0, 32)}"`,
       };
     } catch (err) {
       return {

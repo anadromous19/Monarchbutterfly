@@ -1,3 +1,5 @@
+import { Platform, TurboModuleRegistry } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { CameraPermissionState, CapturedPhoto } from './types';
 
 export interface CameraService {
@@ -12,18 +14,25 @@ export interface CameraService {
 
 export class MobileCameraService implements CameraService {
   async requestCameraPermission(): Promise<CameraPermissionState> {
-    try {
-      const { Camera } = await import('react-native-vision-camera');
-      if (Camera && Camera.requestCameraPermission) {
-        const status = await Camera.requestCameraPermission();
-        return {
-          hasPermission: status === 'granted',
-          canAskAgain: status !== 'denied',
-          status: status === 'granted' ? 'granted' : 'denied',
-        };
+    const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+    if (Platform.OS !== 'web' && !isExpoGo) {
+      try {
+        const hasCamera = typeof TurboModuleRegistry !== 'undefined' && TurboModuleRegistry.get('Camera') != null;
+        if (hasCamera) {
+          const { Camera } = await import('react-native-vision-camera');
+          if (Camera && Camera.requestCameraPermission) {
+            const status = await Camera.requestCameraPermission();
+            return {
+              hasPermission: status === 'granted',
+              canAskAgain: status !== 'denied',
+              status: status === 'granted' ? 'granted' : 'denied',
+            };
+          }
+        }
+      } catch {
+        // Fallback for Expo Go / tests
       }
-    } catch {
-      // Fallback for web / tests
     }
 
     return {
@@ -34,18 +43,25 @@ export class MobileCameraService implements CameraService {
   }
 
   async checkCameraPermission(): Promise<CameraPermissionState> {
-    try {
-      const { Camera } = await import('react-native-vision-camera');
-      if (Camera && Camera.getCameraPermissionStatus) {
-        const status = Camera.getCameraPermissionStatus();
-        return {
-          hasPermission: status === 'granted',
-          canAskAgain: status !== 'denied',
-          status: status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined',
-        };
+    const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+    if (Platform.OS !== 'web' && !isExpoGo) {
+      try {
+        const hasCamera = typeof TurboModuleRegistry !== 'undefined' && TurboModuleRegistry.get('Camera') != null;
+        if (hasCamera) {
+          const { Camera } = await import('react-native-vision-camera');
+          if (Camera && Camera.getCameraPermissionStatus) {
+            const status = Camera.getCameraPermissionStatus();
+            return {
+              hasPermission: status === 'granted',
+              canAskAgain: status !== 'denied',
+              status: status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined',
+            };
+          }
+        }
+      } catch {
+        // Fallback
       }
-    } catch {
-      // Fallback
     }
 
     return {
@@ -60,8 +76,6 @@ export class MobileCameraService implements CameraService {
     width = 1920,
     height = 1080
   ): Promise<CapturedPhoto> {
-    // In production, calculate SHA-256 hash and byte size of local file
-    // For fast offline processing and cross-platform compatibility:
     const mockHash = this.generateFastHash(uri);
     return {
       localUri: uri,

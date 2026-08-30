@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   StatusBar,
+  Alert,
   ViewStyle,
   TextStyle,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import {
   getDatabase,
   ObservationRepository,
@@ -83,8 +85,11 @@ export default function DashboardScreen() {
       const weatherRepo = new WeatherRepository(db);
       const syncRepo = new SyncJobRepository(db);
 
+      const appSyncUrl = Constants.expoConfig?.extra?.appSyncUrl || 'https://api.monarchtracker.org/graphql';
+      const awsRegion = Constants.expoConfig?.extra?.awsRegion || 'us-east-1';
+
       const appSyncClient = new AppSyncClient(
-        { endpoint: 'https://mock.api/graphql', region: 'us-east-1' },
+        { endpoint: appSyncUrl, region: awsRegion },
         authService
       );
       const s3Uploader = new S3Uploader();
@@ -99,10 +104,24 @@ export default function DashboardScreen() {
         s3Uploader
       );
 
-      await engine.processOutbox();
+      const syncedCount = await engine.processOutbox();
       await loadDashboardData();
+
+      if (syncedCount > 0) {
+        Alert.alert('Cloud Sync Complete', `Successfully synchronized ${syncedCount} observation(s) to AWS.`);
+      } else {
+        const remaining = await syncRepo.getPendingCount();
+        if (remaining > 0) {
+          Alert.alert(
+            'Local Offline Outbox',
+            `${remaining} observation(s) are safely saved in your local database. Cloud sync will automatically push them once your AWS AppSync backend is deployed.`
+          );
+        } else {
+          Alert.alert('All Synced', 'All observations are up to date.');
+        }
+      }
     } catch (err) {
-      console.warn('Manual sync error:', err);
+      Alert.alert('Sync Status', (err as Error).message);
     } finally {
       setIsSyncing(false);
     }

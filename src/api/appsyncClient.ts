@@ -24,31 +24,51 @@ export class AppSyncClient {
     private authService: AuthService
   ) {}
 
-  async syncObservation(input: SyncObservationInput): Promise<SyncObservationResponse> {
+  private isLiveEndpoint(): boolean {
+    return (
+      Boolean(this.config.endpoint) &&
+      !this.config.endpoint.includes('example.com') &&
+      !this.config.endpoint.includes('api.monarchtracker.org')
+    );
+  }
+
+  private async executeGraphQL<T>(query: string, variables: Record<string, unknown>): Promise<T> {
+    if (!this.isLiveEndpoint()) {
+      throw new Error(`Cloud backend not configured (endpoint: ${this.config.endpoint || 'none'}). Observations remain saved in local offline outbox.`);
+    }
+
     const session = await this.authService.getSession();
-    
-    // In production with active AppSync endpoint:
-    // Execute GraphQL POST with Authorization / x-api-key headers.
-    // For local and offline resilience:
-    return {
-      success: true,
-      id: input.id,
-      version: (input.version ?? 0) + 1,
-      updatedAt: new Date().toISOString(),
-      weatherStatus: input.locationConsent && input.latitude ? 'complete' : 'denied',
-      weatherSnapshot: input.locationConsent && input.latitude
-        ? {
-            observationId: input.id,
-            observedAt: input.capturedAt,
-            provider: 'AWS-Lambda-OpenWeather-Proxy',
-            temperatureC: 22.4,
-            humidityPercent: 60.0,
-            pressureHpa: 1014.0,
-            windSpeedMps: 3.5,
-            conditionCode: '800',
-          }
-        : null,
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-api-identity': session.identityId,
     };
+
+    const response = await fetch(this.config.endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query, variables }),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`AppSync HTTP Error ${response.status}: ${response.statusText}`);
+    }
+
+    const json = await response.json();
+    if (json.errors && json.errors.length > 0) {
+      throw new Error(json.errors[0].message || 'GraphQL Mutation failed');
+    }
+
+    return json.data;
+  }
+
+  async syncObservation(input: SyncObservationInput): Promise<SyncObservationResponse> {
+    const data = await this.executeGraphQL<{ syncObservation: SyncObservationResponse }>(
+      SYNC_OBSERVATION_MUTATION,
+      { input }
+    );
+
+    return data.syncObservation;
   }
 
   async getPresignedUploadUrl(
@@ -57,34 +77,29 @@ export class AppSyncClient {
     sha256: string,
     byteSize: number
   ): Promise<PresignedUploadUrlResponse> {
-    const session = await this.authService.getSession();
-    const s3Key = `private/${session.identityId}/observations/${observationId}/${evidenceId}.jpg`;
-    
-    return {
-      uploadUrl: `https://s3.amazonaws.com/monarch-evidence-private/${s3Key}?signed=true`,
-      s3Key,
-      expiresInSeconds: 900,
-      headers: {
-        'x-amz-checksum-sha256': sha256,
-        'Content-Type': 'image/jpeg',
-      },
-    };
+    const data = await this.executeGraphQL<{ getPresignedUploadUrl: PresignedUploadUrlResponse }>(
+      GET_PRESIGNED_UPLOAD_URL_MUTATION,
+      { observationId, evidenceId, sha256, byteSize }
+    );
+
+    return data.getPresignedUploadUrl;
   }
 
   async verifyEvidence(input: VerifyEvidenceInput): Promise<VerifyEvidenceResponse> {
-    return {
-      success: true,
-      evidenceId: input.evidenceId,
-      verified: true,
-      s3Url: `https://s3.amazonaws.com/monarch-evidence-private/${input.s3Key}`,
-    };
+    const data = await this.executeGraphQL<{ verifyEvidence: VerifyEvidenceResponse }>(
+      VERIFY_EVIDENCE_MUTATION,
+      { input }
+    );
+
+    return data.verifyEvidence;
   }
 
   async deleteObservation(id: string, idempotencyKey: string): Promise<{ success: boolean; id: string; deletedAt: string }> {
-    return {
-      success: true,
-      id,
-      deletedAt: new Date().toISOString(),
-    };
+    const data = await this.executeGraphQL<{ deleteObservation: { success: boolean; id: string; deletedAt: string } }>(
+      DELETE_OBSERVATION_MUTATION,
+      { id, idempotencyKey }
+    );
+
+    return data.deleteObservation;
   }
 }

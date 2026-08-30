@@ -44,30 +44,40 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-asset',
     'expo-font',
+    'expo-sqlite',
     [
-      'react-native-vision-camera',
+      'expo-camera',
       {
-        cameraPermissionText: '$(PRODUCT_NAME) needs camera access to classify butterflies.',
-        enableMicrophonePermission: false,
+        cameraPermission: 'Monarch Tracker requires camera access to photograph and identify butterflies.',
+      },
+    ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Monarch Tracker allows selecting butterfly photos from your library.',
       },
     ],
     [
       'expo-location',
       {
-        locationWhenInUsePermission: '$(PRODUCT_NAME) requires location access to record butterfly observation points.',
+        locationWhenInUsePermission: 'Monarch Tracker requires location access to record butterfly observation points.',
       },
     ],
     [
       'expo-secure-store',
       {
-        faceIDPermission: 'Allow $(PRODUCT_NAME) to securely authenticate your session.',
+        faceIDPermission: 'Allow Monarch Tracker to securely authenticate your session.',
       },
     ],
   ],
   extra: {
-    eas: {
-      projectId: 'monarch-citizen-science-local',
-    },
+    ...(process.env.EAS_PROJECT_ID
+      ? {
+          eas: {
+            projectId: process.env.EAS_PROJECT_ID,
+          },
+        }
+      : {}),
     awsRegion: process.env.EXPO_PUBLIC_AWS_REGION || 'us-east-1',
     appSyncUrl: process.env.EXPO_PUBLIC_APPSYNC_URL || 'https://api.monarchtracker.org/graphql',
     identityPoolId: process.env.EXPO_PUBLIC_IDENTITY_POOL_ID || 'us-east-1:00000000-0000-0000-0000-000000000000',
