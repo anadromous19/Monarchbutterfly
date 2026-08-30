@@ -1,0 +1,81 @@
+# ==========================================
+# Monarch Tracker - Git Ignore Configuration
+# ==========================================
+
+# Node & Package Managers
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+
+# Expo & React Native Build Artifacts
+.expo/
+.expo-shared/
+web-build/
+dist/
+build/
+coverage/
+.metro/
+
+# Native Build Directories
+android/app/build/
+android/.gradle/
+ios/build/
+ios/Pods/
+ios/*.xcworkspace/xcuserdata/
+
+# Security, Certificates & Keys
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+*.orig.*
+
+# Environment Variables & Private Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+aws-exports.js
+amplify/
+
+# Python Virtual Environments & Bytecode
+.venv/
+.venv-model/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+*.pytest_cache/
+
+# AWS CDK & Serverless Artifacts
+cdk.out/
+backend/cdk.out/
+.aws-sam/
+
+# SQLite & Local Test Databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Operating System & IDE Files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~

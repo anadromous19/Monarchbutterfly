@@ -1,0 +1,39 @@
+{
+  "status": "PASSED",
+  "evaluated_samples": 20,
+  "mean_absolute_difference": 7.4e-06,
+  "max_absolute_difference": 1.217e-05,
+  "configured_tolerance": 0.05,
+  "sample_records": [
+    {
+      "sample": 1,
+      "keras_pred": 0.038921,
+      "tflite_pred": 0.038909,
+      "abs_diff": 1.2e-05
+    },
+    {
+      "sample": 2,
+      "keras_pred": 0.040766,
+      "tflite_pred": 0.040757,
+      "abs_diff": 9e-06
+    },
+    {
+      "sample": 3,
+      "keras_pred": 0.040685,
+      "tflite_pred": 0.040675,
+      "abs_diff": 1e-05
+    },
+    {
+      "sample": 4,
+      "keras_pred": 0.041572,
+      "tflite_pred": 0.041566,
+      "abs_diff": 6e-06
+    },
+    {
+      "sample": 5,
+      "keras_pred": 0.035022,
+      "tflite_pred": 0.035018,
+      "abs_diff": 4e-06
+    }
+  ]
+}

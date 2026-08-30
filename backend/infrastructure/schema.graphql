@@ -1,0 +1,128 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+enum SpeciesPrediction {
+  monarch
+  non_monarch
+}
+
+enum UserVerdict {
+  confirmed
+  rejected
+  unsure
+}
+
+enum WeatherStatus {
+  pending
+  complete
+  unavailable
+  denied
+}
+
+type WeatherSnapshot {
+  observationId: ID!
+  observedAt: AWSDateTime
+  provider: String
+  temperatureC: Float
+  humidityPercent: Float
+  pressureHpa: Float
+  windSpeedMps: Float
+  windDirectionDeg: Float
+  precipitationMm: Float
+  cloudPercent: Float
+  conditionCode: String
+}
+
+type Observation {
+  id: ID!
+  ownerIdentityId: ID!
+  capturedAt: AWSDateTime!
+  createdAt: AWSDateTime!
+  updatedAt: AWSDateTime!
+  speciesPrediction: String!
+  monarchProbability: Float!
+  confidenceThreshold: Float!
+  userVerdict: UserVerdict
+  modelVersion: String!
+  modelSha256: String!
+  preprocessingVersion: String!
+  latitude: Float
+  longitude: Float
+  horizontalAccuracyM: Float
+  altitudeM: Float
+  locationConsent: Boolean!
+  weatherStatus: WeatherStatus!
+  weatherSnapshot: WeatherSnapshot
+  version: Int!
+}
+
+input SyncObservationInput {
+  id: ID!
+  idempotencyKey: String!
+  capturedAt: AWSDateTime!
+  speciesPrediction: String!
+  monarchProbability: Float!
+  confidenceThreshold: Float!
+  userVerdict: UserVerdict
+  modelVersion: String!
+  modelSha256: String!
+  preprocessingVersion: String!
+  latitude: Float
+  longitude: Float
+  horizontalAccuracyM: Float
+  altitudeM: Float
+  locationConsent: Boolean!
+  version: Int
+}
+
+type SyncObservationResponse {
+  success: Boolean!
+  id: ID!
+  version: Int!
+  updatedAt: AWSDateTime!
+  weatherStatus: WeatherStatus!
+  weatherSnapshot: WeatherSnapshot
+  error: String
+}
+
+type PresignedUploadUrlResponse {
+  uploadUrl: String!
+  s3Key: String!
+  expiresInSeconds: Int!
+  headers: AWSJSON
+}
+
+input VerifyEvidenceInput {
+  observationId: ID!
+  evidenceId: ID!
+  s3Key: String!
+  sha256: String!
+  byteSize: Int!
+}
+
+type VerifyEvidenceResponse {
+  success: Boolean!
+  evidenceId: ID!
+  verified: Boolean!
+  s3Url: String
+}
+
+type DeleteObservationResponse {
+  success: Boolean!
+  id: ID!
+  deletedAt: AWSDateTime!
+}
+
+type Query {
+  getObservation(id: ID!): Observation
+  listMyObservations(limit: Int, nextToken: String): [Observation!]!
+}
+
+type Mutation {
+  syncObservation(input: SyncObservationInput!): SyncObservationResponse!
+  getPresignedUploadUrl(observationId: ID!, evidenceId: ID!, sha256: String!, byteSize: Int!): PresignedUploadUrlResponse!
+  verifyEvidence(input: VerifyEvidenceInput!): VerifyEvidenceResponse!
+  deleteObservation(id: ID!, idempotencyKey: String!): DeleteObservationResponse!
+}
