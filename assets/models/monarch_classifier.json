@@ -1,0 +1,42 @@
+{
+  "model_version": "1.0.0",
+  "source": "model/monarch_classifier.h5",
+  "quantization": "float16",
+  "sha256": "0cfe441e2b5eb3de398fbfe317cc05aeece3f711d51bb55289dc19f8217d1850",
+  "input_dimensions": [
+    224,
+    224,
+    3
+  ],
+  "channel_order": "RGB",
+  "preprocessing_version": "v1-rgb-scale-0-1",
+  "normalization": "pixel_value / 255.0",
+  "default_confidence_threshold": 0.90,
+  "labels": [
+    "non_monarch",
+    "monarch"
+  ],
+  "output_type": "binary_sigmoid",
+  "inputs": [
+    {
+      "name": "serving_default_input_layer:0",
+      "shape": [
+        1,
+        224,
+        224,
+        3
+      ],
+      "dtype": "float32"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "StatefulPartitionedCall:0",
+      "shape": [
+        1,
+        1
+      ],
+      "dtype": "float32"
+    }
+  ]
+}
