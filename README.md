@@ -1,6 +1,6 @@
 # Monarch Citizen Science Mobile App
 
-A cross-platform mobile application and AWS serverless cloud backend for detecting and tracking Monarch butterflies (*Danaus plexippus*) in the wild.
+A cross-platform mobile application and AWS serverless cloud backend for detecting and tracking Monarch butterflies (_Danaus plexippus_) in the wild.
 
 Built with **React Native / Expo**, **Fast TFLite**, **SQLite**, and **AWS AppSync / DynamoDB / S3**.
 
@@ -58,6 +58,7 @@ monarch/
 ## Getting Started
 
 ### 1. Model Conversion & Validation
+
 ```powershell
 # Convert legacy Keras H5 model to TFLite Float16
 python scripts/model/convert_h5_to_tflite.py --input model/monarch_classifier.h5 --output assets/models/monarch_classifier_float16.tflite --quantization float16
@@ -67,18 +68,23 @@ python scripts/model/validate_parity.py
 ```
 
 ### 2. Running Automated Tests
+
 ```powershell
 npm test
 ```
 
 ### 3. Running Mobile App Locally
+
 ```powershell
 npm start
 # Press 'w' for web preview, 'a' for Android, or 'i' for iOS simulator
 ```
 
 ### 4. Building with EAS
+
 ```powershell
 npx eas-cli build --profile development --platform android
 npx eas-cli build --profile development --platform ios
 ```
+
+Have fun!
