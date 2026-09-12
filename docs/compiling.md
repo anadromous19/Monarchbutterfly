@@ -1,66 +1,84 @@
-Viewed app.config.ts:1-79
-Created app.config.ts
-Ran command: `npx.cmd expo config`
-Used tool: manage_task
-Used tool: manage_task
+# Compilation & Execution Guide
 
-The EAS login prompt appeared for two reasons:
+This document provides technical details on how the Monarch Citizen Science app is compiled, run, and deployed across Web, Mobile (Expo Go), and Native Development Builds.
 
 ---
 
-### 1. Placeholder EAS Project ID (Now Fixed)
+## Architecture Overview
 
-[`app.config.ts`](file:///c:/Users/micro.VADER/Documents/Projects/Inspirit/Ajay/monarch/app.config.ts) previously had a placeholder `extra.eas.projectId: 'monarch-citizen-science-local'`. Whenever Expo CLI sees a `projectId`, it attempts to authenticate with `expo.dev` to verify the cloud project credentials.
-
-> **Fix Applied**: Updated [`app.config.ts`](file:///c:/Users/micro.VADER/Documents/Projects/Inspirit/Ajay/monarch/app.config.ts) so `projectId` is only injected when the environment variable `EAS_PROJECT_ID` is set. You will no longer be asked to log in to EAS for local development.
-
----
-
-### 2. Native Modules vs. Standard "Expo Go" on iOS
-
-The Monarch Tracker app relies on two custom native libraries:
-
-- **`react-native-fast-tflite`**: High-performance C++ TFLite runtime for on-device inference.
-- **`react-native-vision-camera`**: Native camera frame acquisition and photo capture.
-
-The pre-compiled **Expo Go** client from the Apple App Store contains only Expo's built-in modules and **cannot** run third-party native C++/Objective-C modules like Fast TFLite.
+The Monarch Citizen Science application is built using:
+- **Expo SDK 57** (`react-native 0.86.3` / `react 19.2.3`).
+- **Expo Router v57** for file-based navigation in `app/`.
+- **`expo-sqlite`** for transactional on-device offline storage.
+- **`react-native-fast-tflite`** for high-performance C++ TFLite inference.
+- **`react-native-vision-camera`** for camera frame acquisition and photo capture.
 
 ---
 
-### How to Run the App
+## 1. Local Development Options
 
-#### Option A: Web Browser Preview (No Native Builds Required)
-
-To inspect the UI, navigation flows, and test databases directly in your browser:
+### Option A: Web Browser Preview (Fastest, No Device Needed)
 
 ```powershell
-npm run web
+pnpm run web
+```
+* **How it works:** Metro uses [`metro.config.js`](file:///c:/Users/micro.VADER/Documents/Projects/Inspirit/Ajay/monarch/metro.config.js) to detect the `web` platform and alias native-only TurboModules (`react-native-fast-tflite` and `react-native-vision-camera`) to safe stub mocks (`src/ml/nativeMock.js`).
+* **Best for:** Rapid UI layout design, navigation testing, state management, and settings verification.
+
+---
+
+### Option B: Expo Go Mobile Preview (Physical iOS or Android Device)
+
+```powershell
+npx expo start -c
 ```
 
-#### Option B: Cloud Development Build via EAS (Install on physical iPhone without Mac)
+#### Account Synchronization Rule
+When your PC terminal is logged in to Expo (`npx expo login`), Expo attaches your user handle (e.g. `@negligee4524`) to the local development session.
+* **Requirement:** You must log into the **same Expo account** inside the Expo Go app on your phone (open Expo Go -> **Profile** tab -> Log In).
+* **If not logged in:** Expo Go will reject the connection with `"You must be logged in to open this project"`.
+* **Anonymous Alternative:** Run `npx expo logout` on your PC if you wish to run without accounts.
 
-If you want to test on a physical iPhone with real camera and TFLite acceleration:
+---
 
-1. Create a free account at [expo.dev](https://expo.dev) (if you don't have one).
-2. Log in in your terminal:
+### Option C: Cloud Development Build via EAS (Full Native Hardware)
+
+Standard Expo Go does not contain compiled C++ binaries for third-party libraries like Fast TFLite. If you need live camera inference with the `.tflite` model on a physical phone:
+
+1. Log into your free Expo account:
    ```powershell
    npx expo login
    ```
-3. Run the cloud build command:
+2. Build your custom development client:
    ```powershell
+   # Android APK
+   npx eas-cli build --profile development --platform android
+
+   # iOS IPA
    npx eas-cli build --profile development --platform ios
    ```
-   _EAS will compile the native iOS binary with Fast TFLite & VisionCamera and provide a QR code to install directly on your device._
+3. Scan the QR code generated in terminal by EAS to install the app on your device.
+4. Run `pnpm start` to connect your local dev server directly to your custom build.
 
-#### Option C: Android Build (APK)
+---
+
+## 2. Testing & Quality Verification
+
+Run these commands prior to committing changes:
 
 ```powershell
-npx eas-cli build --profile development --platform android
+# TypeScript Type Checking
+pnpm typecheck
+
+# Jest Unit & Integration Tests (SQLite, ML Preprocessing, Sync Worker)
+pnpm test
 ```
 
-The Expo configuration has reloaded cleanly without EAS cloud bindings.
+---
 
-If you restart the dev server with `npm start`, you can test the UI on web or prepare native builds without EAS login prompts. Let me know if you have any other questions!
+## 3. Important Build & Config Files
 
-Ran command: `npm start`
-Viewed README.md:54-85
+* **[`app.config.ts`](file:///c:/Users/micro.VADER/Documents/Projects/Inspirit/Ajay/monarch/app.config.ts)**: Dynamic Expo configuration, native permissions (Camera, Location, Photo Library), and environment variables. Note: `projectId` is only injected when `EAS_PROJECT_ID` is set to avoid mandatory EAS cloud login prompts during local development.
+* **[`metro.config.js`](file:///c:/Users/micro.VADER/Documents/Projects/Inspirit/Ajay/monarch/metro.config.js)**: Configures asset extensions (`.tflite`, `.wasm`) and platform-specific stubbing for web.
+* **[`scripts/patch-codegen.js`](file:///c:/Users/micro.VADER/Documents/Projects/Inspirit/Ajay/monarch/scripts/patch-codegen.js)**: Automatically reconciles React Native 0.86 Flow type specs (`ReadonlyArray` / `Readonly`) with `@react-native/codegen`.
+* **[`docs/deployment.md`](file:///c:/Users/micro.VADER/Documents/Projects/Inspirit/Ajay/monarch/docs/deployment.md)**: Full step-by-step instructions for deploying the AWS backend, serving the web bundle, and publishing production builds to app stores.

@@ -11,7 +11,10 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "postinstall": "node scripts/patch-codegen.js",
+    "build:web": "expo export --platform web",
+    "backend:template": "node scripts/generate-cfn.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
