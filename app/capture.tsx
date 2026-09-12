@@ -116,7 +116,7 @@ export default function CaptureScreen() {
         {permission?.granted ? (
           <CameraView
             ref={cameraRef}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             facing={facing}
           />
         ) : (
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   permissionPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 30,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
   },

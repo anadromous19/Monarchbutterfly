@@ -18,7 +18,7 @@ export interface SyncEngineStatus {
 
 export class SyncEngine {
   private isRunning = false;
-  private timer: NodeJS.Timeout | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
   private lastRunAt: string | null = null;
   private lastError: string | null = null;
 

@@ -7,13 +7,15 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
+    "types": [
+      "jest"
+    ],
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ],
       "@app/*": [
-        "app/*"
+        "./app/*"
       ]
     }
   },
