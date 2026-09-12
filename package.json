@@ -65,5 +65,14 @@
         ]
       }
     }
+  },
+  "pnpm": {
+    "overrides": {
+      "@react-native/babel-preset": "0.86.3",
+      "@react-native/babel-plugin-codegen": "0.86.3",
+      "@react-native/codegen": "0.86.3",
+      "@react-native/metro-config": "0.86.3",
+      "@react-native/metro-babel-transformer": "0.86.3"
+    }
   }
 }
